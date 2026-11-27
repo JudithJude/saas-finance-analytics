@@ -1,0 +1,82 @@
+version: 2
+
+models:
+  - name: fct_mrr
+    description: >
+      MRR per customer per month, in EUR. One row per customer per month in which
+      they were paying. Built from paid and open invoices, net of discounts, with
+      yearly plans spread evenly over 12 months.
+    columns:
+      - name: customer_month_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: month
+        data_tests: [not_null]
+      - name: plan_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_plans')
+                field: plan_id
+      - name: mrr_eur
+        data_tests: [not_null]
+
+  - name: fct_mrr_movements
+    description: How each customer's MRR moved each month (new, expansion, contraction, churn, reactivation, retained).
+    columns:
+      - name: customer_month_id
+        data_tests: [unique, not_null]
+      - name: movement_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["new", "expansion", "contraction", "churn", "reactivation", "retained"]
+
+  - name: rpt_mrr_monthly
+    description: One row per month with MRR, ARR, movements, churn and retention. This is what the finance dashboard reads.
+    columns:
+      - name: month
+        data_tests: [unique, not_null]
+
+  - name: dim_customers
+    description: One row per paying customer, with IDs across Stripe, HubSpot and the app.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+
+  - name: dim_plans
+    description: One row per plan, with list prices.
+    columns:
+      - name: plan_id
+        data_tests: [unique, not_null]
+
+unit_tests:
+  - name: test_mrr_movement_types
+    description: Each kind of MRR change gets the right label.
+    model: fct_mrr_movements
+    given:
+      - input: ref('fct_mrr')
+        rows:
+          - {customer_id: a, month: 2026-01-01, mrr_eur: 100}
+          - {customer_id: a, month: 2026-02-01, mrr_eur: 150}
+          - {customer_id: a, month: 2026-03-01, mrr_eur: 120}
+          - {customer_id: a, month: 2026-04-01, mrr_eur: 120}
+          - {customer_id: b, month: 2026-01-01, mrr_eur: 200}
+          - {customer_id: b, month: 2026-03-01, mrr_eur: 200}
+    expect:
+      rows:
+        - {customer_id: a, month: 2026-01-01, movement_type: new, starting_mrr_eur: 0, ending_mrr_eur: 100, new_mrr_eur: 100, reactivation_mrr_eur: 0, expansion_mrr_eur: 0, contraction_mrr_eur: 0, churned_mrr_eur: 0}
+        - {customer_id: a, month: 2026-02-01, movement_type: expansion, starting_mrr_eur: 100, ending_mrr_eur: 150, new_mrr_eur: 0, reactivation_mrr_eur: 0, expansion_mrr_eur: 50, contraction_mrr_eur: 0, churned_mrr_eur: 0}
+        - {customer_id: a, month: 2026-03-01, movement_type: contraction, starting_mrr_eur: 150, ending_mrr_eur: 120, new_mrr_eur: 0, reactivation_mrr_eur: 0, expansion_mrr_eur: 0, contraction_mrr_eur: 30, churned_mrr_eur: 0}
+        - {customer_id: a, month: 2026-04-01, movement_type: retained, starting_mrr_eur: 120, ending_mrr_eur: 120, new_mrr_eur: 0, reactivation_mrr_eur: 0, expansion_mrr_eur: 0, contraction_mrr_eur: 0, churned_mrr_eur: 0}
+        - {customer_id: b, month: 2026-01-01, movement_type: new, starting_mrr_eur: 0, ending_mrr_eur: 200, new_mrr_eur: 200, reactivation_mrr_eur: 0, expansion_mrr_eur: 0, contraction_mrr_eur: 0, churned_mrr_eur: 0}
+        - {customer_id: b, month: 2026-02-01, movement_type: churn, starting_mrr_eur: 200, ending_mrr_eur: 0, new_mrr_eur: 0, reactivation_mrr_eur: 0, expansion_mrr_eur: 0, contraction_mrr_eur: 0, churned_mrr_eur: 200}
+        - {customer_id: b, month: 2026-03-01, movement_type: reactivation, starting_mrr_eur: 0, ending_mrr_eur: 200, new_mrr_eur: 0, reactivation_mrr_eur: 200, expansion_mrr_eur: 0, contraction_mrr_eur: 0, churned_mrr_eur: 0}
+        - {customer_id: b, month: 2026-04-01, movement_type: churn, starting_mrr_eur: 200, ending_mrr_eur: 0, new_mrr_eur: 0, reactivation_mrr_eur: 0, expansion_mrr_eur: 0, contraction_mrr_eur: 0, churned_mrr_eur: 200}

@@ -1,0 +1,6 @@
+plan_id,plan_name,tier,billing_interval,list_price_cents
+starter_monthly,Starter (monthly),starter,month,8900
+pro_monthly,Pro (monthly),pro,month,19900
+enterprise_monthly,Enterprise (monthly),enterprise,month,49900
+starter_yearly,Starter (yearly),starter,year,89000
+pro_yearly,Pro (yearly),pro,year,199000

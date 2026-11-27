@@ -1,0 +1,37 @@
+name: saas_finance
+version: "1.0.0"
+profile: saas_finance
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  saas_finance:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+    marts:
+      +materialized: table
+      +schema: marts
+
+seeds:
+  saas_finance:
+    +schema: seeds
+    fx_rates:
+      +column_types:
+        rate_to_eur: numeric(10, 4)
+    plan_prices:
+      +column_types:
+        list_price_cents: integer
+
+snapshots:
+  saas_finance:
+    +schema: snapshots

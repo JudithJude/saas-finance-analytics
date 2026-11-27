@@ -1,0 +1,9 @@
+version: 2
+
+models:
+  - name: fct_usage_daily
+    description: Product usage per account per day, linked to the paying customer where there is one.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["account_id", "activity_date"]

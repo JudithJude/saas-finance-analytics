@@ -1,0 +1,23 @@
+# After a merge to main, ship the DAGs and dbt project to Astro.
+# Needs two repository secrets: ASTRO_API_TOKEN and ASTRO_DEPLOYMENT_ID.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    # Only deploy when CI passed on main.
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      ASTRO_API_TOKEN: ${{ secrets.ASTRO_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Astro CLI
+        run: curl -sSL https://install.astronomer.io | sudo bash -s
+      - name: Deploy
+        run: astro deploy ${{ secrets.ASTRO_DEPLOYMENT_ID }} --force

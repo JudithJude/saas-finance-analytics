@@ -1,0 +1,10 @@
+snapshots:
+  - name: snap_stripe_subscriptions
+    description: >
+      History of every subscription's status and plan. Stripe only keeps the
+      current state, so this is how we can answer "what plan was this customer on in March?".
+    relation: source('stripe', 'subscriptions')
+    config:
+      unique_key: id
+      strategy: timestamp
+      updated_at: updated_at

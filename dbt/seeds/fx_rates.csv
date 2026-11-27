@@ -1,0 +1,3 @@
+currency,rate_to_eur,note
+EUR,1.0000,reporting currency
+USD,0.9200,fixed planning rate so FX swings don't show up as expansion or contraction

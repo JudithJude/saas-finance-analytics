@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: int_customer_ids
+    description: Maps each Stripe customer to its HubSpot company and app account.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: hubspot_match_method
+        description: How the HubSpot company was found. 'unmatched' rows need fixing in HubSpot.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["stripe_id", "email_domain", "unmatched"]
+
+  - name: int_invoice_months
+    description: Each countable invoice spread over the months it covers, in EUR.
+    data_tests:
+      - unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["invoice_id", "month"]
+    columns:
+      - name: months_in_period
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 12]
+                quote: false
+      - name: monthly_amount_eur
+        data_tests: [not_null]

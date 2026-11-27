@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: stg_stripe__customers
+    description: One row per Stripe customer.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: currency
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["EUR", "USD"]
+
+  - name: stg_stripe__subscriptions
+    description: One row per Stripe subscription, as it is now.
+    columns:
+      - name: subscription_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_stripe__customers')
+                field: customer_id
+      - name: subscription_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["active", "canceled", "past_due", "trialing"]
+
+  - name: stg_stripe__invoices
+    description: One row per Stripe invoice. Amounts are in the invoice currency, in units (not cents).
+    columns:
+      - name: invoice_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_stripe__customers')
+                field: customer_id
+      - name: invoice_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["draft", "open", "paid", "uncollectible", "void"]
+      - name: plan_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('plan_prices')
+                field: plan_id

@@ -1,0 +1,92 @@
+# Runs on every pull request. Merge only when every job is green.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dbt:
+    name: Extract, dbt build and lint
+    runs-on: ubuntu-latest
+    services:
+      warehouse:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: warehouse
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      WAREHOUSE_HOST: localhost
+      WAREHOUSE_PORT: 5432
+      WAREHOUSE_DB: warehouse
+      WAREHOUSE_USER: postgres
+      WAREHOUSE_PASSWORD: postgres
+      USE_FAKE_API: "true"
+      DBT_TARGET: dev
+      # Each run builds into its own schemas, e.g. ci_123_marts, so runs never collide.
+      DBT_SCHEMA: ci_${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+
+      - name: Make fake data and load it into raw
+        run: |
+          python -m include.generate_fake_data
+          python -m include.run_extract
+
+      - name: Load again (checks the watermark loads nothing twice)
+        run: |
+          python -m include.run_extract | tee second_run.txt
+          ! grep -vE ": 0 rows loaded$" second_run.txt
+
+      - name: dbt build (models, snapshots, seeds, data tests, unit tests)
+        working-directory: dbt
+        run: dbt build --profiles-dir .
+
+      - name: Source freshness
+        working-directory: dbt
+        run: dbt source freshness --profiles-dir .
+
+      - name: Lint SQL
+        run: sqlfluff lint dbt/models dbt/tests
+
+  dags:
+    name: DAG integrity
+    runs-on: ubuntu-latest
+    env:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__UNIT_TEST_MODE: "True"
+      AIRFLOW__COSMOS__ENABLE_TELEMETRY: "False"
+      DBT_TARGET: dev
+      DBT_EXECUTABLE: /tmp/dbt_venv/bin/dbt
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Airflow (same version as the Astro image) and Cosmos
+        run: |
+          pip install "apache-airflow==3.1.8" -r requirements.txt pytest \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.1.8/constraints-3.12.txt"
+      - name: Install dbt in its own virtualenv, like the Dockerfile does
+        run: |
+          python -m venv /tmp/dbt_venv
+          /tmp/dbt_venv/bin/pip install dbt-core==1.12.7 dbt-postgres==1.11.0
+      - run: airflow db migrate
+      - run: pytest tests/dags -v
