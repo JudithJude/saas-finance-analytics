@@ -2,6 +2,7 @@
 
 Each DAG runs hourly, loads only records changed since the last run, and then
 marks its raw tables as updated (an Airflow Asset). dbt_finance waits for those.
+The Stripe DAG also strips personal fields from customers on the erasure list.
 """
 
 from __future__ import annotations
@@ -39,9 +40,17 @@ def make_extract_dag(source: str):
     def extract():
         @task(outlets=[raw_asset(source)])
         def extract_and_load() -> dict[str, int]:
-            from include.extract.load import run
+            from include.extract.load import connect, run
 
-            return run(source)
+            loaded = run(source)
+            if source == "stripe":
+                # A reload can bring back personal fields of customers who asked to be
+                # forgotten, so strip them again straight after every load.
+                from include.privacy.erase_raw import erase, erasure_ids
+
+                with connect() as conn:
+                    loaded["erased_customers"] = erase(conn, erasure_ids())
+            return loaded
 
         extract_and_load()
 

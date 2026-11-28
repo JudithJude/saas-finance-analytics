@@ -1,8 +1,8 @@
 # For running extract + dbt + lint on your laptop or in CI, without Airflow.
 dbt-core==1.12.7
 dbt-postgres==1.11.0
-psycopg2-binary==2.9.13
-requests==2.34.2
+psycopg2-binary==2.9.11
+requests==2.32.5
 sqlfluff==4.5.0
 sqlfluff-templater-dbt==4.5.0
 pytest==9.1.1

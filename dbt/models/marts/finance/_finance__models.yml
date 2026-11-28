@@ -46,10 +46,16 @@ models:
         data_tests: [unique, not_null]
 
   - name: dim_customers
-    description: One row per paying customer, with IDs across Stripe, HubSpot and the app.
+    description: >
+      One row per paying customer, with IDs across Stripe, HubSpot and the app.
+      Company name and email domain only: no personal emails reach the marts.
     columns:
       - name: customer_id
         data_tests: [unique, not_null]
+      - name: customer_name
+        meta: {contains_pii: true}
+      - name: email_domain
+        meta: {contains_pii: true}
 
   - name: dim_plans
     description: One row per plan, with list prices.

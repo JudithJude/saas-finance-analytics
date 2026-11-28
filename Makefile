@@ -14,7 +14,7 @@ PY := .venv/bin/python
 DBT := cd dbt && ../.venv/bin/dbt
 DBT_FLAGS := --profiles-dir .
 
-.PHONY: setup up down data extract build test freshness lint docs all airflow clean
+.PHONY: setup up down data extract erase build test freshness lint docs all airflow clean
 
 setup:            ## Create the virtualenv and install dbt, sqlfluff and pytest
 	python3 -m venv .venv
@@ -32,6 +32,9 @@ data:             ## Make fresh fake API data
 extract:          ## Load every source into the raw schema (incremental)
 	$(PY) -m include.run_extract
 
+erase:            ## Strip personal fields from raw for customers on the erasure list
+	$(PY) -m include.privacy.erase_raw
+
 build:            ## dbt seed, run, snapshot and test, in dependency order
 	$(DBT) build $(DBT_FLAGS)
 
@@ -44,7 +47,7 @@ lint:             ## Lint the SQL
 docs:             ## Browse the dbt docs and lineage graph on http://localhost:8080
 	$(DBT) docs generate $(DBT_FLAGS) && $(DBT) docs serve $(DBT_FLAGS)
 
-all: data extract build   ## The whole pipeline, end to end
+all: data extract erase build   ## The whole pipeline, end to end
 
 airflow:          ## Run the real thing: Airflow + warehouse + Metabase (needs the Astro CLI)
 	astro dev start

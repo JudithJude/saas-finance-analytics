@@ -36,8 +36,8 @@ jobs:
       # Each run builds into its own schemas, e.g. ci_123_marts, so runs never collide.
       DBT_SCHEMA: ci_${{ github.run_id }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -76,8 +76,8 @@ jobs:
       DBT_EXECUTABLE: /tmp/dbt_venv/bin/dbt
       PYTHONPATH: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install Airflow (same version as the Astro image) and Cosmos

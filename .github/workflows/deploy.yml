@@ -16,8 +16,14 @@ jobs:
     env:
       ASTRO_API_TOKEN: ${{ secrets.ASTRO_API_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Skip if Astro isn't set up yet
+        if: ${{ env.ASTRO_API_TOKEN == '' }}
+        run: echo "No ASTRO_API_TOKEN secret, so nothing to deploy to. Add the secrets to turn deploys on."
+      - uses: actions/checkout@v5
+        if: ${{ env.ASTRO_API_TOKEN != '' }}
       - name: Install the Astro CLI
+        if: ${{ env.ASTRO_API_TOKEN != '' }}
         run: curl -sSL https://install.astronomer.io | sudo bash -s
       - name: Deploy
+        if: ${{ env.ASTRO_API_TOKEN != '' }}
         run: astro deploy ${{ secrets.ASTRO_DEPLOYMENT_ID }} --force

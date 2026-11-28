@@ -2,10 +2,22 @@ version: 2
 
 models:
   - name: stg_stripe__customers
-    description: One row per Stripe customer.
+    description: >
+      One row per Stripe customer. Holds personal data (name, email); only the email
+      domain and the name move on to the marts. Customers on the privacy_erasures seed
+      keep their rows, with personal fields set to null. See docs/privacy.md.
     columns:
       - name: customer_id
         data_tests: [unique, not_null]
+      - name: customer_name
+        meta: {contains_pii: true}
+      - name: email
+        meta: {contains_pii: true}
+      - name: email_domain
+        meta: {contains_pii: true}
+      - name: is_erased
+        description: True if the customer asked for their personal data to be deleted.
+        data_tests: [not_null]
       - name: currency
         data_tests:
           - accepted_values:

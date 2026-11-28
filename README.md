@@ -31,6 +31,7 @@ flowchart LR
 1. **Extract and load** (`include/extract/`). One Airflow DAG per source runs hourly. It asks the API only for records changed since the last run (a **watermark** stored in `raw._watermarks`) and upserts them untouched into `raw`, as JSON. Loading the same record twice stores it once.
 2. **Transform** (`dbt/`). When every source has landed, the `dbt_finance` DAG starts (it's scheduled on Airflow Assets). Cosmos turns each dbt model into its own task and runs its tests straight after it, so a bad model stops everything downstream.
 3. **Serve** (`docs/metabase.md`). Metabase reads only the `marts` schema.
+4. **Protect personal data** (`docs/privacy.md`). Personal emails never leave staging, and customers who ask to be forgotten have their personal fields removed from every layer, while their invoices and MRR history stay.
 
 ## The dbt project
 
@@ -45,12 +46,13 @@ flowchart LR
 
 How each metric is calculated, and every rule behind it (failed payments, discounts, yearly plans, currencies), is in **[docs/metric_definitions.md](docs/metric_definitions.md)**.
 
-### Tests (58 data tests, 1 unit test, 8 DAG tests)
+### Tests (61 data tests, 1 unit test, 8 DAG tests)
 
 - **Reconciliation:** invoiced amount = MRR recognised + amount deferred to future months (`assert_mrr_ties_to_invoices`).
 - **Movements balance:** starting MRR + new + reactivation + expansion − contraction − churn = ending MRR, every month.
 - **Unit test:** `test_mrr_movement_types` feeds fixed rows into `fct_mrr_movements` and checks each label.
 - **Grain:** one row per customer per month in `fct_mrr` and `fct_mrr_movements`, one per account per day in usage.
+- **Privacy:** no personal email or phone column in any marts table (`assert_no_personal_emails_in_marts`), and no personal data left for erased customers (`assert_erased_customers_have_no_personal_data`).
 - **Generic:** `unique`, `not_null`, `relationships`, `accepted_values` across staging and marts.
 - **Freshness:** a warning if a source wasn't loaded in 12 hours, an error after 24.
 - **DAG integrity** (`tests/dags`): every DAG loads, has retries and a failure alert, and the dbt DAG has a task per model.
@@ -103,17 +105,18 @@ In the Airflow UI, turn on the `extract_*` DAGs. `dbt_finance` starts by itself 
 dags/                   extract_sources.py (one DAG per source), dbt_finance.py (Cosmos)
 include/
   extract/              sources.py, clients.py (fake + real Stripe), load.py (watermark + upsert)
+  privacy/erase_raw.py  strip personal fields from raw for customers on the erasure list
   generate_fake_data.py
   run_extract.py        run extract without Airflow
   alerts.py             Slack alert on task failure
 dbt/
   models/               staging/, intermediate/, marts/{finance,growth,sales}
   macros/               cents_to_units, months_between, reporting_month, generate_schema_name
-  seeds/                plan_prices.csv, fx_rates.csv
+  seeds/                plan_prices.csv, fx_rates.csv, privacy_erasures.csv
   snapshots/            snap_stripe_subscriptions
-  tests/                reconciliation and balance tests, generic grain test
+  tests/                reconciliation, balance and privacy tests, generic grain test
 tests/dags/             DAG integrity tests
-docs/                   metric definitions, Metabase guide
+docs/                   metric definitions, Metabase guide, personal data and GDPR
 .github/workflows/      ci.yml, deploy.yml
 Dockerfile              Astro Runtime + dbt in its own virtualenv
 docker-compose.override.yml   local warehouse + Metabase
@@ -125,6 +128,7 @@ docker-compose.override.yml   local warehouse + Metabase
 - **dbt in its own virtualenv** on Astro, so dbt and Airflow never fight over package versions.
 - **Separate schemas per environment.** Dev builds into `dev_*`, CI into `ci_<run id>_*`, prod into clean `staging`, `intermediate`, `marts`.
 - **Fixed FX rate** for reporting, so exchange-rate swings don't pass as expansion or contraction.
+- **Delete the person, keep the invoice.** A GDPR erasure nulls name and email but keeps IDs and amounts, because finance must keep invoices for the legal retention period.
 - **Failed payments count as churn**, then reactivation if the customer pays again. It's the stricter view; switch it in `int_invoice_months` if finance prefers otherwise.
 
 ## What I'd add next
